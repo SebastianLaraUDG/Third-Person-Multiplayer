@@ -4,6 +4,8 @@
 // ReSharper disable CppTooWideScope
 #include "BlasterPlayerController.h"
 
+#include "EnhancedInputComponent.h"
+#include "EnhancedInputSubsystems.h"
 #include "Blaster/BlasterComponents/CombatComponent.h"
 #include "Blaster/Character/BlasterCharacter.h"
 #include "Blaster/GameMode/BlasterGameMode.h"
@@ -11,6 +13,7 @@
 #include "Blaster/HUD/Announcement.h"
 #include "Blaster/HUD/BlasterHUD.h"
 #include "Blaster/HUD/CharacterOverlay.h"
+#include "Blaster/HUD/PauseMenu.h"
 #include "Blaster/HUD/SniperScope.h"
 #include "Blaster/PlayerState/BlasterPlayerState.h"
 #include "Components/ProgressBar.h"
@@ -18,7 +21,7 @@
 #include "GameFramework/GameMode.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
-
+#include "MultiplayerSessions/Public/MultiplayerSessionsSubsystem.h"
 
 
 void ABlasterPlayerController::BeginPlay()
@@ -35,13 +38,29 @@ void ABlasterPlayerController::BeginPlay()
 	// TODO: stop timer when game ends.
 }
 
+void ABlasterPlayerController::SetupInputComponent()
+{
+	Super::SetupInputComponent();
+
+	auto EnhancedInputComp = Cast<UEnhancedInputComponent>(InputComponent);
+	if (!EnhancedInputComp)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Enhanced Input Component is NULL in %s"), *GetNameSafe(this));
+		return;
+	}
+
+	if (PauseInputAction)
+	{
+		EnhancedInputComp->BindAction(PauseInputAction, ETriggerEvent::Started, this, &ThisClass::TogglePauseMenu);
+	}
+}
+
 void ABlasterPlayerController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
-	/*
-	Update HUD on possess. This is because when the character respawned HUD (health bar) was not
-	being initialized correctly.
-	*/
+	
+	// Update HUD on possess. This is because when the character respawned HUD (health bar) was not
+	// being initialized correctly.
 	if (const auto BlasterCharacter = Cast<ABlasterCharacter>(InPawn))
 	{
 		BlasterCharacter->UpdateHUD();
@@ -79,10 +98,26 @@ void ABlasterPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetime
 	DOREPLIFETIME(ThisClass, MatchState)
 }
 
+void ABlasterPlayerController::ClientRestart_Implementation(class APawn* NewPawn)
+{
+	Super::ClientRestart_Implementation(NewPawn);
+	
+	// Binding in BeginPlay fails in remote clients since GetLocalPlayer is null at the time of call Therefore, we have to bind here.
+	// NOTE for myself (I am noob), ClientRestart_Implementation is a crucial function within the APlayerController class used to handle the client-side, post-possession logic when a player pawn is spawned, possessed, or respawned in a networked game.
+	// It is called on the client when the server informs it to possess a new pawn.
+	if (UIMappingContext)
+	{
+		if (auto EnhancedInputSubsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
+		{
+			EnhancedInputSubsystem->AddMappingContext(UIMappingContext, 0);
+		}
+	}
+}
+
 void ABlasterPlayerController::SetHUDHealth(float Health, float MaxHealth)
 {
 	EnsureBlasterHUD();
-	
+
 	const bool bHUDValid = HUDAndOverlayAreValid() &&
 		BlasterHUD->CharacterOverlay->HealthBar &&
 		BlasterHUD->CharacterOverlay->HealthText;
@@ -102,7 +137,7 @@ void ABlasterPlayerController::SetHUDHealth(float Health, float MaxHealth)
 void ABlasterPlayerController::SetHUDScore(const float Score)
 {
 	EnsureBlasterHUD();
-	
+
 	if (HUDAndOverlayAreValid() && BlasterHUD->CharacterOverlay->ScoreAmount)
 	{
 		const FString ScoreText = FString::Printf(TEXT("%d"), FMath::FloorToInt(Score));
@@ -112,8 +147,8 @@ void ABlasterPlayerController::SetHUDScore(const float Score)
 
 void ABlasterPlayerController::SetHUDDefeats(const int32 Defeats)
 {
-	EnsureBlasterHUD();	
-	
+	EnsureBlasterHUD();
+
 	if (HUDAndOverlayAreValid() && BlasterHUD->CharacterOverlay->ScoreAmount)
 	{
 		const FString DefeatsText = FString::Printf(TEXT("%d"), Defeats);
@@ -124,7 +159,7 @@ void ABlasterPlayerController::SetHUDDefeats(const int32 Defeats)
 void ABlasterPlayerController::SetHUDWeaponAmmo(const int32 Ammo)
 {
 	EnsureBlasterHUD();
-	
+
 	if (HUDAndOverlayAreValid() && BlasterHUD->CharacterOverlay->WeaponAmmoAmount)
 	{
 		const FString AmmoText = FString::Printf(TEXT("%d"), Ammo);
@@ -135,7 +170,7 @@ void ABlasterPlayerController::SetHUDWeaponAmmo(const int32 Ammo)
 void ABlasterPlayerController::SetHUDWeaponCarriedAmmo(const int32 CarriedAmmo)
 {
 	EnsureBlasterHUD();
-	
+
 	if (HUDAndOverlayAreValid() && BlasterHUD->CharacterOverlay->CarriedAmmoAmount)
 	{
 		const FString CarriedAmmoText = FString::Printf(TEXT("%d"), CarriedAmmo);
@@ -146,7 +181,7 @@ void ABlasterPlayerController::SetHUDWeaponCarriedAmmo(const int32 CarriedAmmo)
 void ABlasterPlayerController::SetHUDEquippedWeaponName(const EWeaponType WeaponType)
 {
 	EnsureBlasterHUD();
-	
+
 	if (HUDAndOverlayAreValid() && BlasterHUD->CharacterOverlay->EquippedWeaponName)
 	{
 		FText EquippedWeaponName;
@@ -177,7 +212,7 @@ void ABlasterPlayerController::SetHUDEquippedWeaponName(const EWeaponType Weapon
 void ABlasterPlayerController::SetHUDMatchCountdown(const float CountdownTime)
 {
 	EnsureBlasterHUD();
-	
+
 	if (HUDAndOverlayAreValid() && BlasterHUD->CharacterOverlay->MatchCountDownText)
 	{
 		if (CountdownTime < 0.f) // Prevent displaying negative time.
@@ -205,7 +240,7 @@ void ABlasterPlayerController::SetHUDMatchCountdown(const float CountdownTime)
 void ABlasterPlayerController::SetHUDAnnouncementCountdown(const float CountdownTime)
 {
 	EnsureBlasterHUD();
-	
+
 	const bool bHUDValid = BlasterHUD && BlasterHUD->Announcement && BlasterHUD->Announcement->WarmupTime;
 	if (bHUDValid)
 	{
@@ -225,18 +260,18 @@ void ABlasterPlayerController::SetHUDAnnouncementCountdown(const float Countdown
 void ABlasterPlayerController::SetHUDSniperScope(const bool bIsAiming)
 {
 	EnsureBlasterHUD();
-	
+
 	if (!BlasterHUD->SniperScope)
 	{
 		BlasterHUD->AddSniperScope();
 	}
-	
+
 	const bool bHUDValid = BlasterHUD && BlasterHUD->SniperScope && BlasterHUD->SniperScope->ScopeZoomIn;
 	if (!bHUDValid)
 	{
 		return;
 	}
-	
+
 	// Play aim animation (zoom in).
 	if (bIsAiming)
 	{
@@ -254,7 +289,7 @@ void ABlasterPlayerController::SetHUDSniperScope(const bool bIsAiming)
 void ABlasterPlayerController::SetHUDGrenades(const int32 Grenades)
 {
 	EnsureBlasterHUD();
-	
+
 	if (HUDAndOverlayAreValid() && BlasterHUD->CharacterOverlay->GrenadesText)
 	{
 		const FString GrenadesText = FString::Printf(TEXT("%d"), Grenades);
@@ -381,6 +416,77 @@ void ABlasterPlayerController::OnMatchStateSet(const FName& State)
 	}
 }
 
+void ABlasterPlayerController::RemovePauseMenu()
+{
+	bPauseMenuOpen = false;
+	// BlasterHUD->PauseMenu->SetVisibility(ESlateVisibility::Hidden);
+	BlasterHUD->PauseMenu->RemoveFromParent();
+	// SetIgnoreMoveInput(false);
+	// SetIgnoreLookInput(false);
+	SetShowMouseCursor(false);
+	const FInputModeGameOnly InputModeGameOnly;
+	SetInputMode(InputModeGameOnly);
+	if (auto BlasterCharacter = Cast<ABlasterCharacter>(GetPawn()))
+	{
+		BlasterCharacter->bDisableGameplay = false;
+	}
+}
+
+void ABlasterPlayerController::ReturnToMainMenu()
+{
+	if (MainMenuLevel.IsNull()) return;
+
+	auto GameInstance = GetGameInstance();
+	if (!GameInstance) return;
+
+	StoredMenuPath = MainMenuLevel.ToSoftObjectPath().GetLongPackageName();
+
+	if (HasAuthority())
+	// Please remember blaster project uses a listen-server approach when hosting, so this will be called from a ListenServer (player), not from a dedicated server. 
+	{
+		auto MultiplayerSubsystem = GameInstance->GetSubsystem<UMultiplayerSessionsSubsystem>();
+		if (!MultiplayerSubsystem) return;
+
+		MultiplayerSubsystem->MultiplayerOnDestroySessionComplete.AddDynamic(
+			this, &ThisClass::OnDestroySessionForReturn);
+		MultiplayerSubsystem->DestroySession();
+	}
+	else
+	{
+		ClientTravel(StoredMenuPath, TRAVEL_Absolute);
+	}
+}
+
+void ABlasterPlayerController::OnDestroySessionForReturn(bool bWasSuccessful)
+{
+	auto GameInstance = GetGameInstance();
+	if (!GameInstance) return;
+
+	if (auto MultiplayerSubsystem = GameInstance->GetSubsystem<UMultiplayerSessionsSubsystem>())
+	{
+		MultiplayerSubsystem->MultiplayerOnDestroySessionComplete.RemoveDynamic(
+			this, &ThisClass::OnDestroySessionForReturn);
+	}
+	if (auto World = GetWorld())
+	{
+		World->ServerTravel(StoredMenuPath);
+	}
+}
+
+void ABlasterPlayerController::QuitGame()
+{
+	auto GameInstance = GetGameInstance();
+	if (!GameInstance) return;
+
+	if (HasAuthority())
+	{
+		auto MultiplayerSubsystem = GameInstance->GetSubsystem<UMultiplayerSessionsSubsystem>();
+		if (MultiplayerSubsystem) MultiplayerSubsystem->DestroySession();
+	}
+
+	UKismetSystemLibrary::QuitGame(GetWorld(), this, EQuitPreference::Quit, false);
+}
+
 void ABlasterPlayerController::OnRep_MatchState()
 {
 	// Just transitioned to gameplay.
@@ -437,6 +543,67 @@ void ABlasterPlayerController::HandleCooldown()
 		BlasterCharacter->bDisableGameplay = true;
 		BlasterCharacter->GetCombatComponent()->FireButtonPressed(false);
 	}
+	
+	// Remove the pause menu in case it is displaying.
+	if (EnsureBlasterHUD() && BlasterHUD->PauseMenu && bPauseMenuOpen)
+	{
+		BlasterHUD->PauseMenu->RemoveFromParent();
+		bPauseMenuOpen = false;
+	}
+}
+
+void ABlasterPlayerController::TogglePauseMenu()
+{
+	
+	UE_LOG(LogPlayerController, Display, TEXT("IF YOU ARE READING THIS, INPUT IS WORKING PROPERLY. Is LocalController %d. BlasterHUD: %d."
+										   "BlasterHud->PauseMenu: %d"),IsLocalController(),BlasterHUD? 1 :0, BlasterHUD->PauseMenu ? 1 : 0)
+	
+	if (!IsLocalController()) return; // Pause menu only on local player.
+	
+	if (auto GameState = GetWorld()->GetGameState<AGameState>())
+	{
+		if (GameState->GetMatchState() != MatchState::InProgress)
+		{
+			// Players should only be able to open pause menu if the match state is a gameplay state.
+			// I also thought about removing IMC, or using a boolean, in case current approach does not work, try these or other options.
+			return;
+		}
+	}
+	
+	if (!EnsureBlasterHUD() || !BlasterHUD->PauseMenuClass)
+	{
+		return;
+	}
+
+	bPauseMenuOpen = !bPauseMenuOpen;
+
+	if (bPauseMenuOpen)
+	{
+		BlasterHUD->PauseMenu = CreateWidget<UPauseMenu>(this, BlasterHUD->PauseMenuClass);
+		BlasterHUD->PauseMenu->AddToViewport();
+		BlasterHUD->PauseMenu->OnCloseMenuRequested.AddUObject(this,
+												   &ThisClass::RemovePauseMenu);
+		BlasterHUD->PauseMenu->OnReturnToMenuRequested.AddUObject(this,
+													  &ThisClass::ReturnToMainMenu);
+		BlasterHUD->PauseMenu->OnQuitGameRequested.AddUObject(this, &ThisClass::QuitGame);
+		
+		// SetIgnoreMoveInput(true);
+		// SetIgnoreLookInput(true);
+		SetShowMouseCursor(true);
+		FInputModeGameAndUI InputModeData;
+		// This is to avoid a double click issue.
+		InputModeData.SetWidgetToFocus(BlasterHUD->PauseMenu->TakeWidget());
+		InputModeData.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+		SetInputMode(InputModeData);
+		if (auto BlasterCharacter = Cast<ABlasterCharacter>(GetPawn()))
+		{
+			BlasterCharacter->bDisableGameplay = true;
+		}
+	}
+	else
+	{
+		RemovePauseMenu(); // This was made a function to be bound from the BlasterHUD class when pressing the ClosePauseMenu button.
+	}
 }
 
 void ABlasterPlayerController::DisplayWinner() const
@@ -479,5 +646,10 @@ void ABlasterPlayerController::DisplayWinner() const
 
 ABlasterHUD* ABlasterPlayerController::EnsureBlasterHUD()
 {
-	return BlasterHUD = BlasterHUD ? BlasterHUD.Get() : Cast<ABlasterHUD>(GetHUD());
+	if (!IsValid(BlasterHUD))
+	{
+		BlasterHUD = Cast<ABlasterHUD>(GetHUD());
+	}
+	return BlasterHUD;
+	// return BlasterHUD = BlasterHUD ? BlasterHUD.Get() : Cast<ABlasterHUD>(GetHUD());
 }

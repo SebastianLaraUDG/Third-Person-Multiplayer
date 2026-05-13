@@ -8,6 +8,8 @@
 #include "Blaster/Weapon/WeaponTypes.h"
 #include "BlasterPlayerController.generated.h"
 
+class UInputAction;
+class UInputMappingContext;
 class ABlasterHUD;
 /**
  * 
@@ -18,9 +20,9 @@ class BLASTER_API ABlasterPlayerController : public APlayerController
 	GENERATED_BODY()
 
 public:
-	virtual void OnPossess(APawn* InPawn) override;
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
-	
+	virtual void ReceivedPlayer() override; // Sync with server clock as soon as possible.
+	virtual void ClientRestart_Implementation(class APawn* NewPawn) override;
 	/**
 	 * HUD
 	 */
@@ -36,16 +38,39 @@ public:
 	void SetHUDGrenades(const int32 Grenades);
 	
 	void OnMatchStateSet(const FName& State);
+	
+	// Pause.
+	
+	void RemovePauseMenu();
+	
+	UFUNCTION(BlueprintCallable)
+	void ReturnToMainMenu();
+	
+	UFUNCTION(BlueprintCallable)
+	void QuitGame();
+	
+	UFUNCTION()
+	void OnDestroySessionForReturn(bool bWasSuccessful);
+	
+	UPROPERTY(EditDefaultsOnly, Category = Input)
+	TObjectPtr<UInputMappingContext> UIMappingContext;
+	
+	UPROPERTY(EditDefaultsOnly, Category = Input)
+	TObjectPtr<UInputAction> PauseInputAction;
 
+	UPROPERTY(EditDefaultsOnly, Category = Levels)
+	TSoftObjectPtr<UWorld> MainMenuLevel;
+	
 protected:
 	virtual void BeginPlay() override;
+	virtual void SetupInputComponent() override;
+	virtual void OnPossess(APawn* InPawn) override;
 	
 	// Set HUD time and check time sync.
 	// It displays time according to match or announcement case.
 	void SetHUDTime();
 	
 	virtual float GetServerTime() const; // Synced with server world clock.
-	virtual void ReceivedPlayer() override; // Sync with server clock as soon as possible.
 	
 	/**
 	 * Sync time between client and server.
@@ -79,7 +104,7 @@ protected:
 	virtual void DisplayWinner() const;
 	
 private:
-	
+	// UPROPERTY()
 	TObjectPtr<ABlasterHUD> BlasterHUD;
 	
 	float LevelStartingTime = 0.f;
@@ -89,6 +114,9 @@ private:
 	
 	uint32 CountdownInt = 0;
 	FTimerHandle CountdownTimer;
+	
+	bool bPauseMenuOpen = false;
+	FString StoredMenuPath;
 	
 	/** Match state. */
 	
@@ -102,6 +130,8 @@ private:
 	void HandleMatchHasStarted();
 	// Hide character overlay and show announcement text.
 	void HandleCooldown();
+	
+	void TogglePauseMenu();
 	
 	// Avoid code duplication with these functions.
 	ABlasterHUD* EnsureBlasterHUD();
