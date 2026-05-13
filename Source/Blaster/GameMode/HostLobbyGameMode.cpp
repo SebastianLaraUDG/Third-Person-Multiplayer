@@ -46,6 +46,6 @@ void AHostLobbyGameMode::TryStartMatch()
 	bUseSeamlessTravel = true;
 	if (auto World = GetWorld())
 	{
-		World->ServerTravel(Level.ToSoftObjectPath().GetLongPackageName());
+		World->ServerTravel(Level.ToSoftObjectPath().GetLongPackageName()); // "%s?listen is not needed here since Lobby level (host button) already uses this prefix and therefore becomes a listen server.
 	}
 }
