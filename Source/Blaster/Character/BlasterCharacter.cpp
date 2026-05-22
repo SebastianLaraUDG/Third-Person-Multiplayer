@@ -21,6 +21,7 @@
 #include "TimerManager.h"
 #include "NiagaraComponent.h"
 #include "NiagaraFunctionLibrary.h"
+#include "Blaster/BlasterComponents/BuffComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundCue.h"
 
@@ -66,6 +67,10 @@ ABlasterCharacter::ABlasterCharacter()
 	// Health component.
 	HealthComponent = CreateDefaultSubobject<UHealthComponent>(TEXT("HealthComponent"));
 	HealthComponent->SetIsReplicated(true);
+	
+	// Buff component.
+	BuffComponent = CreateDefaultSubobject<UBuffComponent>(TEXT("BuffComponent"));
+	BuffComponent->SetIsReplicated(true);
 
 	// Always spawn. This is because there was an issue when a character should spawn but did not appear maybe because overlapping with something.
 	SpawnCollisionHandlingMethod = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
@@ -156,6 +161,10 @@ void ABlasterCharacter::PostInitializeComponents()
 	if (CombatComponent)
 	{
 		CombatComponent->Character = this;
+	}
+	if (BuffComponent)
+	{
+		BuffComponent->Character = this;
 	}
 }
 
