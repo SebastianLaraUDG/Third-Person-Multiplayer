@@ -11,6 +11,7 @@
 #include "BlasterCharacter.generated.h"
 
 
+class UBuffComponent;
 class UNiagaraComponent;
 class UNiagaraSystem;
 class ABlasterPlayerController;
@@ -128,7 +129,9 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat|Health", meta = (AllowPrivateAccess = true))
 	TObjectPtr<UHealthComponent> HealthComponent;
 	
-	
+	// Buff Component.
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat|Buffs", meta = (AllowPrivateAccess = true))
+	TObjectPtr<UBuffComponent> BuffComponent;
 
 	// My first Server RPC!
 	UFUNCTION(Server, Reliable)

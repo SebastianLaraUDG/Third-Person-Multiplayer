@@ -4,6 +4,7 @@
 #include "AmmoPickup.h"
 
 #include "Blaster/BlasterComponents/CombatComponent.h"
+#include "Sound/SoundBase.h"
 
 void AAmmoPickup::OnBeginOverlapCallback(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
                                          UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)

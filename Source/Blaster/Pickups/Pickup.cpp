@@ -27,7 +27,7 @@ APickup::APickup()
 	Mesh->SetRenderCustomDepth(true);
 	Mesh->SetCustomDepthStencilValue(250);
 	
-	SetReplicates(true);
+	bReplicates = true;
 }
 
 void APickup::Destroyed()

@@ -7,7 +7,7 @@
 #include "Pickup.generated.h"
 
 class USphereComponent;
-
+class USoundCue;
 /*
  * Pickup actor base class.
  * This actor destroys when overlapping with a pawn and plays a 3D sound.
