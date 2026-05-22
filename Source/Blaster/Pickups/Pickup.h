@@ -23,8 +23,9 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	
+	// This calls Destroy so you should only use at the end.
 	UFUNCTION()
-	void OnBeginOverlapCallback(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	virtual void OnBeginOverlapCallback(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -33,6 +34,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TObjectPtr<UStaticMeshComponent> Mesh;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TObjectPtr<USoundCue> PickupSound;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = true))
+	TSoftObjectPtr<USoundCue> SoftPickupSound;
 };

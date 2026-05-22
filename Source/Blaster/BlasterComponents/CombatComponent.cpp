@@ -165,6 +165,20 @@ void UCombatComponent::FireButtonPressed(bool bPressed)
 	}
 }
 
+void UCombatComponent::PickupAmmo(EWeaponType WeaponType, int32 AmmoAmount)
+{
+	if (CarriedAmmoMap.Contains(WeaponType))
+	{
+		CarriedAmmoMap[WeaponType] = FMath::Clamp(CarriedAmmoMap[WeaponType] + AmmoAmount, 0, MaxAmmo);
+		UpdateCarriedAmmo();
+	}
+	// Automatic reload if just picked up ammo when the weapon was empty.
+	if (EquippedWeapon && EquippedWeapon->IsEmpty() && EquippedWeapon->GetWeaponType() == WeaponType)
+	{
+		Reload();
+	}
+}
+
 void UCombatComponent::Fire()
 {
 	if (!CanFire()) return;
@@ -455,6 +469,7 @@ void UCombatComponent::AttachActorToLeftHand(const AActor* ActorToAttach) const
 
 void UCombatComponent::UpdateCarriedAmmo()
 {
+	if (!EquippedWeapon) return;
 	// Check if we have ammo of the current weapon type and display that amount.
 	if (CarriedAmmoMap.Contains(EquippedWeapon->GetWeaponType()))
 	{

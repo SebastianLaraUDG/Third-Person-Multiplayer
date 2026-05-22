@@ -38,6 +38,7 @@ public:
 	void EquipWeapon(AWeapon* WeaponToEquip);
 	void Reload();
 	void FireButtonPressed(bool bPressed);
+	void PickupAmmo(EWeaponType WeaponType, int32 AmmoAmount);
 	
 	// Designed to be called from notifies. Set combat state to Unoccupied in server.
 	UFUNCTION(BlueprintCallable)
@@ -226,6 +227,9 @@ private:
 	void OnRep_CarriedAmmo();
 	
 	TMap<EWeaponType, int32> CarriedAmmoMap;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = true, ClampMin = 0))
+	int32 MaxAmmo = 500;
 	
 	UPROPERTY(EditAnywhere)
 	int32 StartingARAmmo = 30;

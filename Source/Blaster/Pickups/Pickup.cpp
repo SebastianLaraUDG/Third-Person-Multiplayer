@@ -12,6 +12,7 @@ APickup::APickup()
 	PrimaryActorTick.bCanEverTick = false;
 	
 	SetRootComponent(CreateDefaultSubobject<USceneComponent>(TEXT("Pickup root")));
+	RootComponent->SetMobility(EComponentMobility::Type::Movable);
 	
 	SphereComponent = CreateDefaultSubobject<USphereComponent>(TEXT("Sphere Comp"));
 	SphereComponent->SetupAttachment(RootComponent);
@@ -33,7 +34,10 @@ void APickup::Destroyed()
 {
 	Super::Destroyed();
 	
-	UGameplayStatics::PlaySoundAtLocation(this, PickupSound, GetActorLocation());
+	if (!SoftPickupSound.IsNull())
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, SoftPickupSound.LoadSynchronous(), GetActorLocation());
+	}
 }
 
 void APickup::BeginPlay()
@@ -48,4 +52,5 @@ void APickup::BeginPlay()
 
 void APickup::OnBeginOverlapCallback(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
+	Destroy();
 }
