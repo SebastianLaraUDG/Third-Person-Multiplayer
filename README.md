@@ -57,6 +57,7 @@ All of the game's assets are low-poly and were chosen for their low processing c
 - C++
 - Blueprints
 - Multiplayer Replication
+- Steam online subsystem plugin (my custom implementation here: https://github.com/SebastianLaraUDG/MultiplayerSessions)
 
 ---
 # Note
