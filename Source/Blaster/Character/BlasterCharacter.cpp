@@ -598,8 +598,12 @@ void ABlasterCharacter::HideCharacterIfCameraClose() const
 void ABlasterCharacter::OnHealthChanged(float NewHealth, float DeltaHealth, AController* InstigatorController)
 {
 	UpdateHUD();
-	PlayHitReactMontage();
-
+	
+	if (DeltaHealth < 0) // Play only when receiving damage (a positive value means "healing").
+	{
+		PlayHitReactMontage();
+	}
+	
 	const auto BlasterGameMode = GetWorld()->GetAuthGameMode<ABlasterGameMode>();
 
 	// Register death in game mode.
