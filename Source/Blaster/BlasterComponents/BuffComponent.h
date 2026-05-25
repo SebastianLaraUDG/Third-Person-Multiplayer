@@ -16,5 +16,6 @@ public:
 	UBuffComponent();
 	virtual void BeginPlay() override;
 
-	TWeakObjectPtr<ACharacter> Character;
+	UPROPERTY()
+	TObjectPtr<ACharacter> Character;
 };
