@@ -26,8 +26,6 @@ void UBuffComponent::BeginPlay()
 
 //~ Begin Speed Buff section.
 
-
-
 void UBuffComponent::SetInitialSpeeds(const float BaseSpeed, const float CrouchSpeed)
 {
 	InitialBaseSpeed = BaseSpeed;
@@ -57,11 +55,44 @@ void UBuffComponent::BuffSpeed(const float BuffBaseSpeed, const float BuffCrouch
 		UE_LOG(LogBuffs, Display, TEXT(" Restored Initial Speeds: %f Base. %f crouched"), Character->GetCharacterMovement()->MaxWalkSpeed, Character->GetCharacterMovement()->MaxWalkSpeedCrouched)
 		MulticastSpeedBuff(InitialBaseSpeed, InitialCrouchSpeed);
 		UE_LOG(LogBuffs, Display, TEXT("Speed back to normal"))
-		ClientPlayLocalSound(BuffSpeedEndSound);
+		ClientPlayLocalSound(SpeedBuffEndSound);
 	});
 	const float BuffDuration = BuffSpeedDuration < 0.f ? 0.0f : BuffSpeedDuration;
 	UE_LOG(LogBuffs,Display,TEXT("Calculated duration: %f"),BuffDuration);
 	Character->GetWorldTimerManager().SetTimer(SpeedBuffTimer, ResetSpeedsDelegate, BuffDuration,false);
+}
+
+void UBuffComponent::SetInitialJumpVelocity(const float Velocity)
+{
+	InitialJumpZVelocity = Velocity;
+}
+
+void UBuffComponent::BuffJump(const float Velocity, const float JumpBuffDuration)
+{
+	if (!Character || !Character->GetCharacterMovement())
+	{
+		UE_LOG(LogBuffs, Error, TEXT("Tried to buff JUMP but either character or character movement is null. Files: %s"), *GetNameSafe(this));
+		return;
+	}
+	UE_LOG(LogBuffs, Display, TEXT("Buff Jump started"))
+	
+	// Set Velocity.
+	SetJumpVelocity(Velocity);
+	MulticastJumpBuff(Velocity);
+	
+	// Start timer.
+	FTimerDelegate ResetJumpDelegate = FTimerDelegate::CreateLambda(
+		[this]
+		{
+			Character->GetCharacterMovement()->JumpZVelocity = InitialJumpZVelocity;
+		UE_LOG(LogBuffs, Display, TEXT(" Restored Initial JUMP VEL: %f "), Character->GetCharacterMovement()->JumpZVelocity)
+			MulticastJumpBuff(InitialJumpZVelocity);
+			UE_LOG(LogBuffs, Display, TEXT("JUMP VEL back to normal"))
+			ClientPlayLocalSound(JumpBuffEndSound);
+		});
+	const float BuffDuration = JumpBuffDuration < 0.f ? 0.0f : JumpBuffDuration;
+	UE_LOG(LogBuffs,Display,TEXT("Calculated duration: %f"), BuffDuration);
+	Character->GetWorldTimerManager().SetTimer(JumpBuffTimer, ResetJumpDelegate, BuffDuration, false);
 }
 
 void UBuffComponent::SetMovementSpeeds(const float BaseSpeed, const float CrouchSpeed) const
@@ -74,7 +105,7 @@ void UBuffComponent::SetMovementSpeeds(const float BaseSpeed, const float Crouch
 	}
 }
 
-void UBuffComponent::ClientPlayLocalSound_Implementation(USoundBase* Sound)
+void UBuffComponent::ClientPlayLocalSound_Implementation(USoundBase* Sound) const
 {
 	if (Sound)
 	{
@@ -82,7 +113,7 @@ void UBuffComponent::ClientPlayLocalSound_Implementation(USoundBase* Sound)
 	}
 }
 
-void UBuffComponent::MulticastSpeedBuff_Implementation(const float BaseSpeed, const float CrouchSpeed)
+void UBuffComponent::MulticastSpeedBuff_Implementation(const float BaseSpeed, const float CrouchSpeed) const
 {
 	SetMovementSpeeds(BaseSpeed, CrouchSpeed);
 	
@@ -96,3 +127,22 @@ void UBuffComponent::MulticastSpeedBuff_Implementation(const float BaseSpeed, co
 }
 
 //~ End Speed Buff section.
+
+
+
+//~ Begin Jump Buff section.
+void UBuffComponent::SetJumpVelocity(const float JumpVelocity) const
+{
+	if (Character && Character->GetCharacterMovement())
+	{
+		Character->GetCharacterMovement()->JumpZVelocity = JumpVelocity;
+	}
+}
+
+void UBuffComponent::MulticastJumpBuff_Implementation(const float JumpVelocity) const
+{
+	if (Character && Character->GetCharacterMovement())
+	SetJumpVelocity(JumpVelocity);
+}
+
+//~ End Jump Buff section.
